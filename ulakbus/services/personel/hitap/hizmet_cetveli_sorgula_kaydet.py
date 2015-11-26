@@ -56,7 +56,9 @@ class HizmetCetveliSorgula(Service):
                 pass
             hizmet_kayitlari_passed.kurum_onay_tarihi = record_values['kurum_onay_tarihi']
 
-        tckn = self.request.payload['personel']['tckn']
+            self.logger.info("hizmet_kayitlari successfully passed.")
+
+        tckn = self.request.payload['tckn']
         conn = self.outgoing.soap['HITAP'].conn
 
         # connects with soap client to the HITAP
@@ -79,7 +81,7 @@ class HizmetCetveliSorgula(Service):
                         'emekli_kademe': service_bean[record].emekliKademe,
                         'gorev': service_bean[record].gorev,
                         'unvan_kod': service_bean[record].unvanKod,
-                        'hizmet_sinifi': service_bean[record].hizmetSinifi,
+                        'hizmet_sinifi': self.hizmet_sinifi_int_kontrol(service_bean[record].hizmetSinifi),
                         'kayit_no': service_bean[record].kayitNo,
                         'kazanilmis_hak_ayligi_derece': service_bean[
                             record].kazanilmisHakAyligiDerece,
@@ -100,14 +102,14 @@ class HizmetCetveliSorgula(Service):
                         service_bean[record].kurumOnayTarihi == "01.01.0001" else service_bean[
                             record].kurumOnayTarihi
                     }
-                self.logger.info("hitap_dict created.")
+                self.logger.info("hitap_dict created.: %s" % hitap_dict)
 
                 # if employee saved before, find that and add new records from hitap to riak
                 try:
-                    riak_dict_from_db_queries_with_pno = {}
+                    local_records = {}
                     # hizmet_kayitlari_list = HizmetKayitlari.objects.filter(tckn=tckn)
                     for record in HizmetKayitlari.objects.filter(tckn=tckn):
-                        riak_dict_from_db_queries_with_pno[record.kayit_no] = {
+                        local_records[record.kayit_no] = {
                             'baslama_tarihi': record.baslama_tarihi,
                             'bitis_tarihi': record.bitis_tarihi,
                             'emekli_derece': record.emekli_derece,
@@ -131,36 +133,101 @@ class HizmetCetveliSorgula(Service):
                             'yevmiye': record.yevmiye,
                             'kurum_onay_tarihi': record.kurum_onay_tarihi
                         }
-                    self.logger.info("riak_dict_from_db_queries_with_pno created.")
+                    self.logger.info("local_records created.")
 
-                    # if any record exists in riak but not in hitap delete it
-                    for record in HizmetKayitlari.objects.filter(tckn=tckn):
-                        if record.kayit_no not in hitap_dict:
-                            record.delete()
-                            self.logger.info(
-                                "Hizmet record deleted. Record No: %s" % record.kayit_no)
-
-                    # if any record comes from hitap and not in riak, save it to riak
-                    for hitap_key, hitap_values in hitap_dict.items():
-                        if hitap_key not in riak_dict_from_db_queries_with_pno:
-                            hizmet_kayitlari = HizmetKayitlari()
-                            pass_hizmet_kayitlari(hizmet_kayitlari, hitap_values)
+                    for record_id, record_values in hitap_dict.items():
+                        if record_id in local_records:
+                            hizmet_kayitlari = HizmetKayitlari.objects.filter(
+                                kayit_no=record_id).get()
+                            hizmet_kayitlari.sync = 1
                             hizmet_kayitlari.save()
-                            self.logger.info("HizmetKayitlari updated")
+                        else:
+                            hizmet_kayitlari = HizmetKayitlari()
+                            pass_hizmet_kayitlari(hizmet_kayitlari, record_values)
+                            hizmet_kayitlari.sync = 1
+                            hizmet_kayitlari.save()
 
+                    for record_id, record_values in local_records.items():
+                        hizmet_kayitlari = HizmetKayitlari.objects.filter(
+                            kayit_no=record_id).get()
+                        if record_id not in hitap_dict:
+                            if hizmet_kayitlari.sync == 1:
+                                hizmet_kayitlari.sync = 2
+                                hizmet_kayitlari.save()
+                            if hizmet_kayitlari.sync == 2:
+                                hizmet_kayitlari.sync = 3
+                                hizmet_kayitlari.save()
+                        hizmet_kayitlari.sync = 99
+                        hizmet_kayitlari.save()
                     self.logger.info("Service runned.")
+                    response = {'result': 'ok'}
 
                 except IndexError:
                     hizmet_kayitlari = HizmetKayitlari()
                     for hitap_keys, hitap_values in hitap_dict.items():
                         pass_hizmet_kayitlari(hizmet_kayitlari, hitap_values)
                         hizmet_kayitlari.save()
-                        self.logger.info("New AskerlikKayitlari saved.")
+                        self.logger.info("New HizmetKayitlari saved.")
+                        response = {'result': 'new'}
                     sleep(1)
                 except socket.error:
                     self.logger.info("Riak connection refused!")
+                    response = {'result': 'riak error'}
 
         except AttributeError:
-            self.logger.info("TCKN should be wrong!")
+            self.logger.info("TCKN may be wrong!")
+            response = {'result': 'tckn error'}
         except urllib2.URLError:
             self.logger.info("No internet connection!")
+            response = {'result': 'connection error'}
+        response['status'] = 'ok'
+        self.response.payload = response
+
+    def hizmet_sinifi_int_kontrol(self, hs):
+        """
+        Bu metod ilgili HITAP servisinin hizmet_sinifi alaninin, hem 1, 2, 3 ... 29 gibi integer degerler hem de
+        GIH, MIAH, ... SOZ gibi string almasi problemini duzeltmek icindir.
+
+        :param hs: hitaptan donen hizmet sinifi
+        :type hs: str
+        :return int: hitap sinifi int or 0
+
+        """
+        hizmet_siniflari = {
+            "GİH": 1,
+            "MİAH": 2,
+            "SH": 3,
+            "TH": 4,
+            "EÖH": 5,
+            "AH": 6,
+            "EH": 7,
+            "DH": 8,
+            "YH": 9,
+            "MİT": 10,
+            "AHS": 11,
+            "BB": 12,
+            "CU": 13,
+            "CUM": 14,
+            "DE": 15,
+            "DVS": 16,
+            "HS": 17,
+            "MB": 18,
+            "MV": 19,
+            "ÖÜ": 20,
+            "SAY": 21,
+            "TBM": 22,
+            "TRT": 23,
+            "TSK": 24,
+            "YÖK": 25,
+            "YSH": 26,
+            "ÖGO": 27,
+            "ÖY": 28,
+            "SÖZ": 29
+        }
+        if type(hs) is str:
+            return hizmet_siniflari[hs.strip()]
+        elif type(hs) is int and hs in range(1, 30):
+            return hs
+        else:
+            self.logger.info("HIZMET SINIFINI KONTROL EDIN")
+            return 0

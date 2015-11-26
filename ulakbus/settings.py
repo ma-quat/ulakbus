@@ -11,6 +11,8 @@ import os.path
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
+DEFAULT_LANG = 'tr'
+
 # path of the activity modules which will be invoked by workflow tasks
 ACTIVITY_MODULES_IMPORT_PATHS.extend(['ulakbus.views', 'ulakbus.tasks'])
 # absolute path to the workflow packages
@@ -20,6 +22,7 @@ AUTH_BACKEND = 'ulakbus.models.auth.AuthBackend'
 
 PERMISSION_MODEL = 'ulakbus.models.auth.Permission'
 USER_MODEL = 'ulakbus.models.auth.User'
+ROLE_MODEL = 'ulakbus.models.auth.Role'
 # # left blank to use StreamHandler aka stderr
 # LOG_HANDLER = os.environ.get('LOG_HANDLER', 'file')
 #
@@ -28,21 +31,59 @@ USER_MODEL = 'ulakbus.models.auth.User'
 
 # DEFAULT_CACHE_EXPIRE_TIME = 99999999  # seconds
 
-# diagrams that dosen't require logged in user
-ANONYMOUS_WORKFLOWS = ['login',]
+# diagrams that does not require logged in user
+ANONYMOUS_WORKFLOWS = ['login', ]
 
 # #PYOKO SETTINGS
 DEFAULT_BUCKET_TYPE = os.environ.get('DEFAULT_BUCKET_TYPE', 'models')
-# RIAK_SERVER = os.environ.get('RIAK_SERVER', 'localhost')
-# RIAK_PROTOCOL = os.environ.get('RIAK_PROTOCOL', 'http')
-# RIAK_PORT = os.environ.get('RIAK_PORT', 8098)
-#
-# REDIS_SERVER = os.environ.get('REDIS_SERVER')
 
-#
-# ALLOWED_ORIGINS = ['http://127.0.0.1:8080',
-#                    'http://127.0.0.1:9001',
-#                    'http://ulakbus.zetaops.io',
-#                    'http://ulakbus.org',
-#                    'http://ulakbus.net',
-#                    'http://104.155.6.147']
+DATE_DEFAULT_FORMAT = "%d.%m.%Y"
+DATETIME_DEFAULT_FORMAT = "%d.%m.%Y %H:%s"
+
+CRUD_MENUS = {
+    # 'personel|ogrenci|personeller|ogrenciler': [{'name':'ModelName',
+    #                                             'field':'field_name',
+    #                                             'verbose_name': 'verbose_name',
+    #                                             'category': 'Genel'
+    #                                             'wf':'crud'}]
+    # 'field' defaults to 'personel' or 'ogrenci'
+    # verbose_name can be specified to override the model's verbose_name_plural
+    'personel': [
+        {'name': 'KurumDisiGorevlendirmeBilgileri'},
+        {'name': 'KurumIciGorevlendirmeBilgileri'},
+        {'name': 'AdresBilgileri'},
+        {'name': 'HizmetKurs'},
+        {'name': 'HizmetOkul'},
+        {'name': 'HizmetMahkeme'},
+        {'name': 'HizmetBirlestirme'},
+        {'name': 'HizmetTazminat'},
+        {'name': 'HizmetUnvan'},
+        {'name': 'HizmetAcikSure'},
+        {'name': 'HizmetBorclanma'},
+        {'name': 'HizmetIHS'},
+        {'name': 'HizmetIstisnaiIlgi'},
+        {'name': 'HizmetKayitlari'},
+        {'name': 'AskerlikKayitlari'},
+        {'name': 'Atama'},
+        {'name': 'Kadro'},
+        {'name': 'Izin'},
+        {'name': 'UcretsizIzin'},
+    ],
+    'ogrenci': [
+        {'name': 'DersKatilimi'},
+        {'name': 'Borc'},
+        {'name': 'DegerlendirmeNot'},
+        {'name': 'OgrenciDersi'},
+    ],
+}
+
+VIEW_URLS = [
+    # ('falcon URI template', 'python path to view method/class')
+    ('/menu', 'ulakbus.views.system.Menu'),
+    ('/ara/ogrenci/{query}', 'ulakbus.views.system.SearchStudent'),
+    ('/ara/personel/{query}', 'ulakbus.views.system.SearchPerson'),
+    ('/notify/', 'ulakbus.views.system.Notification'),
+
+]
+
+ZATO_SERVER = os.environ.get('ZATO_SERVER', 'http://localhost:11223')
