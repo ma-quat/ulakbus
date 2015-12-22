@@ -18,13 +18,13 @@ class Campus(Model):
     coordinate_y = field.String("Coordinate Y", index=True)
 
     class Meta:
-        verbose_name = "Campus"
-        verbose_name_plural = "Campuses"
+        verbose_name = "Yerleşke"
+        verbose_name_plural = "Yerleşkeler"
         search_fields = ['code', 'name']
         list_fields = ['code', 'name']
 
     def __unicode__(self):
-        return '%s %s %s' % (self.code, self.name, self.coordinates)
+        return '%s %s %s' % (self.code, self.name, self.coordinates())
 
     def coordinates(self):
         return '%s %s' % (self.coordinate_x, self.coordinate_y)
@@ -38,32 +38,50 @@ class Building(Model):
     campus = Campus()
 
     class Meta:
-        verbose_name = "Campus"
-        verbose_name_plural = "Campuses"
-        search_fields = ['name', 'campus']
-        list_fields = ['name', 'campus']
+        verbose_name = "Bina"
+        verbose_name_plural = "Binalar"
+        search_fields = ['code', 'name']
+        list_fields = ['code', 'name', 'campus_display']
+
+    def campus_display(self):
+        return "%s" % self.campus.name
+
+    campus_display.title = 'Yerleşke'
 
     def __unicode__(self):
-        return '%s %s %s %s' % (self.code, self.name, self.coordinates, self.campus)
+        return '%s %s %s %s' % (self.code, self.name, self.coordinates(), self.campus)
 
     def coordinates(self):
         return '%s %s' % (self.coordinate_x, self.coordinate_y)
 
 
+class RoomType(Model):
+    type = field.String("Room Type", index=True)
+    notes = field.Text("Notes", index=True)
+
+    def __unicode__(self):
+        return '%s' % (self.type)
+
+
 class Room(Model):
     code = field.String("Code", index=True)
     name = field.String("Name", index=True)
+    room_type = RoomType("Room Type", index=True)
     floor = field.String("Floor", index=True)
     capacity = field.Integer("Capacity", index=True)
     building = Building()
-    campus = Campus()
     is_active = field.Boolean("Active", index=True)
 
     class Meta:
-        verbose_name = "Campus"
-        verbose_name_plural = "Campuses"
-        search_fields = ['code', 'name', 'campus']
-        list_fields = ['code', 'name', 'campus']
+        verbose_name = "Oda"
+        verbose_name_plural = "Odalar"
+        search_fields = ['code', 'name']
+        list_fields = ['code', 'name', 'building_display']
+
+    def building_display(self):
+        return "%s" % self.building.name
+
+    building_display.title = 'Bina'
 
     def __unicode__(self):
         return '%s %s %s' % (self.code, self.name, self.capacity)

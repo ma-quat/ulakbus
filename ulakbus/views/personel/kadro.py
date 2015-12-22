@@ -59,11 +59,17 @@ from zengine.lib.forms import JsonForm
 
 
 class KadroIslemleri(CrudView):
+    SAKLI = 1
+    IZINLI = 2
+    BOS = 3
+    DOLU = 4
+
     class Meta:
         # CrudViev icin kullanilacak temel Model
         model = 'Kadro'
 
         # ozel bir eylem listesi hazirlayacagiz. bu sebeple listeyi bosaltiyoruz.
+        # kayit tipine bagli olarak ekleyecegimiz eylemleri .append() ile ekleyecegiz
         object_actions = [
             # {'fields': [0, ], 'cmd': 'show', 'mode': 'normal', 'show_as': 'link'},
         ]
@@ -72,6 +78,38 @@ class KadroIslemleri(CrudView):
         class Meta:
             # durum alanini formdan cikar. kadrolar sadece sakli olarak kaydedilebilir.
             exclude = ['durum', ]
+
+            grouping = [
+                {
+                    "layout": "4",
+                    "groups": [
+                        {
+                            "group_title": "Ünvan ve Derece",
+                            "items": ['unvan', 'derece', 'unvan_kod'],
+                            "collapse": True,
+                        }
+                    ]
+                },
+                {
+                    "layout": "4",
+                    "groups": [
+                        {
+                            "group_title": "Diğer",
+                            "items": ['kadro_no', 'aciklama', 'birim_id']
+                        }
+                    ]
+                }
+            ]
+            constraints = [
+                {
+                    'cons': [{'id': 'unvan_kod', 'cond': 'exists'}],
+                    'do': 'change_fields', 'fields': [{'unvan': None}]
+                },
+                {
+                    'cons': [{'id': 'unvan', 'cond': 'exists'}],
+                    'do': 'change_fields', 'fields': [{'unvan_kod': None}]
+                }
+            ]
 
         save_edit = form.Button("Kaydet")
 
@@ -87,8 +125,8 @@ class KadroIslemleri(CrudView):
         # formdan gelen datayi, instance a gecir.
         self.set_form_data_to_object()
 
-        # durumu ne olursa olsun 1 (sakli) yap!..
-        self.object.durum = 1
+        # durumu ne olursa olsun (sakli) yap!..
+        self.object.durum = self.SAKLI
 
         # Kadroyu kaydet
         self.object.save()
@@ -98,24 +136,23 @@ class KadroIslemleri(CrudView):
 
     def kadro_sil(self):
         # sadece sakli kadrolar silinebilir
-        assert self.object.durum != 1, "attack detected, should be logged/banned"
+        assert self.object.durum != self.SAKLI, "attack detected, should be logged/banned"
         self.delete()
 
     def sakli_izinli_degistir(self):
         """
-        durum degerini 1 ve 2 arasinda degistir.
-        1, sakli anlamina gelir,
-        2, izinli anlamina gelir.
+        durum degerini SAKLI ve IZINLI arasinda degistir.
+        SAKLI: 1 degerine,
+        IZINLI: 2, degerine sahiptir.
 
-        sakliysa izinli yap 3 - 1 = 2
-        izinliyse sakli yap 3 - 2 = 1
+        sakliysa izinli yap 3 - SAKLI = IZINLI
+        izinliyse sakli yap 3 - IZINLI = SAKLI
 
         """
-        print("SAKKLI: %s" % self.object.durum)
         self.object.durum = 3 - self.object.durum
         self.object.save()
 
-    @obj_filter()
+    @obj_filter
     def sakli_kadro(self, obj, result):
         """
         sakli kadro filtresi
@@ -125,13 +162,13 @@ class KadroIslemleri(CrudView):
         :param result: liste ogesi satiri
         :return: liste ogesi
         """
-        if obj.durum == 1:
-            result['actions'] = [
-                {'name': 'Izinli Yap', 'cmd': 'sakli_izinli_degistir', 'show_as': 'button'}, ]
+        if obj.durum == self.SAKLI:
+            result['actions'].extend([
+                {'name': 'Sil', 'cmd': 'delete', 'show_as': 'button'},
+                {'name': 'Izinli Yap', 'cmd': 'sakli_izinli_degistir', 'show_as': 'button'}])
         return result
 
-
-    @obj_filter()
+    @obj_filter
     def izinli_kadro(self, obj, result):
         """
         sakli kadro filtresi
@@ -141,12 +178,12 @@ class KadroIslemleri(CrudView):
         :param result: liste ogesi satiri
         :return: liste ogesi
         """
-        if obj.durum == 2:
-            result['actions'] = [
-                {'name': 'Sakli Yap', 'cmd': 'sakli_izinli_degistir',  'show_as': 'button'}, ]
+        if obj.durum == self.IZINLI:
+            result['actions'].append(
+                    {'name': 'Sakli Yap', 'cmd': 'sakli_izinli_degistir', 'show_as': 'button'})
         return result
 
-    @obj_filter()
+    @obj_filter
     def duzenlenebilir_veya_silinebilir_kadro(self, obj, result):
         """
         sakli kadro filtresi
@@ -156,9 +193,8 @@ class KadroIslemleri(CrudView):
         :param result: liste ogesi satiri
         :return: liste ogesi
         """
-        if obj.durum in [1, 2]:
-            result['actions'] = [
-                {'name': 'Sil', 'cmd': 'delete', 'show_as': 'button'},
+        if obj.durum in [self.SAKLI, self.IZINLI]:
+            result['actions'].extend([
                 {'name': 'Düzenle', 'cmd': 'add_edit_form', 'show_as': 'button'},
-            ]
+            ])
         return result

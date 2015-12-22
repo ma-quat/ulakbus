@@ -6,64 +6,14 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from collections import defaultdict
 import random
 from uuid import uuid4
-from pyoko.model import model_registry
-from zengine.auth.permissions import get_workflows
+
+from pyoko.conf import settings
+from ulakbus.views.reports import ReporterRegistry
 from zengine.views.base import BaseView
-from zengine.config import settings
-
-DEFAULT_CATEGORY = 'Genel'
-
-
-class Menu(BaseView):
-    def __init__(self, current):
-        super(Menu, self).__init__(current)
-        result = self.get_crud_menus()
-        for k, v in self.get_workflow_menus().items():
-            result[k].extend(v)
-        self.output.update(result)
-
-    def get_crud_menus(self):
-        results = defaultdict(list)
-        for user_type in settings.CRUD_MENUS:
-            for model_data in settings.CRUD_MENUS[user_type]:
-                if self.current.has_permission(model_data['name']):
-                    self.add_crud(model_data, user_type, results)
-        return results
-
-    def add_crud(self, model_data, user_type, results):
-        model = model_registry.get_model(model_data['name'])
-        field_name = model_data.get('field', user_type + '_id')
-        verbose_name = model_data.get('verbose_name', model.Meta.verbose_name_plural)
-        category = model_data.get('category', DEFAULT_CATEGORY)
-        results[user_type].append({"text": verbose_name,
-                                   "wf": model_data.get('wf', "crud"),
-                                   "model": model_data['name'],
-                                   "kategori": category,
-                                   "param": field_name})
-
-    def get_workflow_menus(self):
-        results = defaultdict(list)
-        for wf in get_workflows():
-            if self.current.has_permission(wf.spec.name):
-                self.add_wf(wf, results)
-        return results
-
-    def add_wf(self, wf, results):
-        category = wf.spec.wf_properties.get("menu_category", 'Genel')
-        object_of_wf = wf.spec.wf_properties.get('object', 'other')
-        if category != 'hidden':
-            results[object_of_wf].append({"text": wf.spec.wf_name,
-                                          "wf": wf.spec.name,
-                                          "kategori": category,
-                                          "param": "id"}
-                                         )
-
-
 from ulakbus.models import Personel, Ogrenci
-
+from zengine.views.menu import Menu
 
 class Search(BaseView):
     def __init__(self, *args, **kwargs):
@@ -75,10 +25,11 @@ class Search(BaseView):
     def do_search(self):
         try:
             tckn = int(self.query.strip())
-            objects = self.SEARCH_ON.objects.filter(tckn='%s*' % tckn)
+            objects = self.SEARCH_ON.objects.filter(tckn__startswith=tckn)
         except:
             q = self.query.replace(' ', '\ ')
-            objects = self.SEARCH_ON.objects.raw("ad:*%s* OR soyad:*%s*" % (q, q))
+            # objects = self.SEARCH_ON.objects.raw("ad:*%s* OR soyad:*%s*" % (q, q))
+            objects = self.SEARCH_ON.objects.search_on('ad', 'soyad', contains=q)
         for o in objects:
             self.output['results'].append(("%s %s" % (o.ad, o.soyad), o.tckn, o.key, ''))
 
@@ -117,3 +68,32 @@ class Notification(BaseView):
         read_messages = self.current.input['read']
         for msg in read_messages:
             self.current.msg_cache.remove_item(msg)
+
+
+class GetCurrentUser(BaseView):
+    def __init__(self, current):
+        super(GetCurrentUser, self).__init__(current)
+        self.output['current_user'] = {}
+        self.getUser(current.user)
+
+    def getUser(self, userObject):
+        currentUser = {
+            "name": userObject.name,
+            "surname": userObject.surname,
+            "username": userObject.username,
+            "roles": [{"role": role.__unicode__()} for role in userObject.role_set]
+        }
+        self.output['current_user'] = currentUser
+
+class UlakbusMenu(Menu):
+    def __init__(self, current):
+        super(UlakbusMenu, self).__init__(current)
+        self.add_reporters()
+
+    def add_reporters(self):
+        for mdl in ReporterRegistry.get_reporters():
+            perm = "report.%s" % mdl['model']
+            if self.current.has_permission(perm):
+                self.output['other'].append(mdl)
+
+
