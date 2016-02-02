@@ -1,9 +1,6 @@
 # -*-  coding: utf-8 -*-
 
-from zengine.views.crud import CrudView, obj_filter
-from pyoko import form
-
-from zengine.lib.forms import JsonForm
+from zengine.views.crud import CrudView
 from ulakbus.models.personel import Personel
 from ulakbus.models.hitap import HizmetKayitlari, HizmetBirlestirme
 from datetime import timedelta, date
@@ -129,6 +126,9 @@ class IzinIslemleri(CrudView):
         query = self._apply_list_queries(self.object.objects.filter())
         yillik_izinler = dict()
         mazeret_izinler = dict()
+
+        if self.ilk_izin_hakedis > date.today():
+            return {'yillik': None, 'mazeret': None}
 
         for yil in range(self.ilk_izin_hakedis.year, date.today().year + 1):
             yillik_izinler[yil] = 20

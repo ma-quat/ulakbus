@@ -9,14 +9,14 @@
 from io import BytesIO
 
 import six
-from reportlab.platypus import Table
-
-from pyoko import form
-from zengine.lib.forms import JsonForm
+from zengine.forms import JsonForm
+from zengine.forms import fields
 from zengine.views.base import BaseView
 import re
-from ulakbus.lib.pdfdocument.document import PDFDocument, register_fonts_from_paths
-
+try:
+    from ulakbus.lib.pdfdocument.document import PDFDocument, register_fonts_from_paths
+except:
+    print("Warning: Reportlab module not found")
 
 class ReporterRegistry(type):
     registry = {}
@@ -62,16 +62,13 @@ FILENAME_RE = re.compile(r'[^A-Za-z0-9\-\.]+')
 
 @six.add_metaclass(ReporterRegistry)
 class Reporter(BaseView):
+    TITLE = ''
 
     class Meta:
         pass
 
     def __init__(self, current):
-        register_fonts_from_paths('AndikaNewBasic.ttf',
-                                  'AndikaNewBasic-I.ttf',
-                                  'AndikaNewBasic-B.ttf',
-                                  'AndikaNewBasic-BI.ttf',
-                                  'AndikaNewBasic')
+
         super(Reporter, self).__init__(current)
         self.cmd = current.input.get('cmd', 'show')
         # print("CMD", self.cmd)
@@ -81,22 +78,28 @@ class Reporter(BaseView):
             self.printout()
 
     class ReportForm(JsonForm):
-        printout = form.Button("Yazdır", cmd="printout")
+        printout = fields.Button("Yazdır", cmd="printout")
 
     def show(self):
-        headers = self.get_headers()
         objects = self.get_objects()
-        self.set_client_cmd('form')
-        self.output['forms'] = self.ReportForm(current=self.current,
-                                               title=self.get_title()).serialize()
+        frm = self.ReportForm(current=self.current, title=self.get_title())
+        if objects:
+            frm.help_text = ''
+            if isinstance(objects[0], dict):
+                self.output['object'] = {'fields': objects, 'type': 'table-multiRow'}
+            else:
+                self.output['object'] = dict(objects)
+
+        else:
+            frm.help_text = 'Kayıt bulunamadı'
+            self.output['object'] = {}
+
+        self.set_client_cmd('form', 'show')
+        self.output['forms'] = frm.serialize()
         self.output['forms']['constraints'] = {}
         self.output['forms']['grouping'] = {}
         self.output['meta'] = {}
-        self.output['objects'] = [headers]
-        for obj in objects:
-            self.output['objects'].append(
-                    {'fields': obj, 'key': None, 'actions': []},
-            )
+
 
     def set_headers(self, as_attachment=True):
         self.current.response.set_header('Content-Type', 'application/pdf')
@@ -106,22 +109,29 @@ class Reporter(BaseView):
         ))
 
     def printout(self):
-        headers = self.get_headers()
+        register_fonts_from_paths('Vera.ttf',
+                                  'VeraIt.ttf',
+                                  'VeraBd.ttf',
+                                  'VeraBI.ttf',
+                                  'Vera')
         objects = self.get_objects()
         self.set_headers()
         f = BytesIO()
-        pdf = PDFDocument(f, font_name='AndikaNewBasic', font_size=14)
+        pdf = PDFDocument(f, font_size=14)
         pdf.init_report()
         pdf.h1(self.tr2ascii(self.get_title()))
 
         # pdf.story.append(Table(objects))
-        if len(objects[0]) == 2:
-            ascii_objects = []
+        ascii_objects = []
+        if isinstance(objects[0], dict):
+            headers = objects[0].keys()
+            ascii_objects.append([self.tr2ascii(h) for h in headers])
+            for obj in objects:
+                ascii_objects.append([self.tr2ascii(k) for k in obj.values()])
+        else:
             for o in objects:
                 ascii_objects.append((self.tr2ascii(o[0]), self.tr2ascii(o[1])))
-            pdf.table(ascii_objects)
-        else:
-            pdf.table(objects)
+        pdf.table(ascii_objects)
         #     else:
         #         pdf.table(o)
         pdf.generate()

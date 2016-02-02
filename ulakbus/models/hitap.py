@@ -47,8 +47,8 @@ class HizmetKurs(Model):
     kurs_ogrenim_suresi = field.Integer("Kurs Öğrenim Süresi", index=True)
     mezuniyet_tarihi = field.Date("Mezuniyet Tarihi", index=True, format="%d.%m.%Y")
     kurs_nevi = field.Integer("Kurs Nevi", index=True, choices="kurs_nevi")
-    bolum_ad = field.Integer("Bölüm Adı", index=True, choices="bolum_ad")
-    okul_ad = field.Integer("Okul Adı", index=True, choices="okul_ad")
+    bolum_ad = field.Integer("Bölüm Adı", index=True, choices="bolum_adi")
+    okul_ad = field.Integer("Okul Adı", index=True, choices="okul_adi")
     ogrenim_yeri = field.String("Öğrenim Yeri", index=True)
     denklik_tarihi = field.Date("Denklik Tarihi", index=True, format="%d.%m.%Y")
     denklik_okulu = field.String("Denklik Okulu", index=True)
@@ -136,7 +136,7 @@ class HizmetBirlestirme(Model):
     baslama_tarihi = field.Date("Başlama Tarihi", index=True, format="%d.%m.%Y")
     bitis_tarihi = field.Date("Bitiş Tarihi", index=True, format="%d.%m.%Y")
     sure = field.Integer("Süre", index=True)
-    kamuIsyeri_ad = field.String("Kamu İşyeri Adı", index=True)
+    kamu_isyeri_ad = field.String("Kamu İşyeri Adı", index=True)
     ozel_isyeri_ad = field.String("Özel İşyeri Adı", index=True)
     bag_kur_meslek = field.String("Bağ-Kur Meslek", index=True)
     ulke_kod = field.Integer("Ülke Kodu", index=True)
@@ -152,8 +152,8 @@ class HizmetBirlestirme(Model):
         app = 'Personel'
         verbose_name = "Birleştirme"
         verbose_name_plural = "Birleştirmeler"
-        list_fields = ['sgk_sicil_no', 'baslama_tarihi', 'bitis_tarihi', 'kamuIsyeri_ad']
-        search_fields = ['kayit_no', 'sgk_sicil_no', 'kamuIsyeri_ad']
+        list_fields = ['sgk_sicil_no', 'baslama_tarihi', 'bitis_tarihi', 'kamu_isyeri_ad']
+        search_fields = ['kayit_no', 'sgk_sicil_no', 'kamu_isyeri_ad']
 
     def __unicode__(self):
         return '%s %s' % (self.kayit_no, self.sgk_nevi)
@@ -321,7 +321,7 @@ class HizmetIstisnaiIlgi(Model):
         search_fields = ['istisnai_ilgi_nevi', 'kha_durum']
 
     def __unicode__(self):
-        return '%s %s %s' % (self.kayit_no, self.istisnai_nevi_ilgi, self.kha_durum)
+        return '%s %s %s' % (self.kayit_no, self.istisnai_ilgi_nevi, self.kha_durum)
 
 
 class HizmetKayitlari(Model):

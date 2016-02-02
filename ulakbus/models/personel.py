@@ -7,7 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 
-from pyoko import Model,  field
+from pyoko import Model, field
 from .auth import Unit, User
 
 PERSONEL_TURU = [
@@ -99,6 +99,9 @@ class AdresBilgileri(Model):
         verbose_name = "Adres Bilgisi"
         verbose_name_plural = "Adres Bilgileri"
 
+    def __unicode__(self):
+        return "%s %s" % (self.ad, self.il)
+
 
 class KurumIciGorevlendirmeBilgileri(Model):
     gorev_tipi = field.String("Görev Tipi", index=True, choices="gorev_tipi")
@@ -152,7 +155,7 @@ class KurumDisiGorevlendirmeBilgileri(Model):
     class Meta:
         verbose_name = "Kurum Disi Gorevlendirme"
         verbose_name_plural = "Kurum Disi Gorevlendirmeler"
-        list_search = ["aciklama"]
+        # list_search = ["aciklama"]
         list_fields = ["ulke", "gorev_tipi", "kurum_disi_gorev_baslama_tarihi"]
         list_filters = ["ulke", "gorev_tipi", "kurum_disi_gorev_baslama_tarihi"]
         search_fields = ["aciklama", ]

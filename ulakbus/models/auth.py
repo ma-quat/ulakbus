@@ -11,6 +11,7 @@ from pyoko import field
 from pyoko import Model, ListNode
 from passlib.hash import pbkdf2_sha512
 from pyoko import LinkProxy
+from pyoko.conf import settings
 
 from zengine.auth.permissions import get_all_permissions
 from zengine.dispatch.dispatcher import receiver
@@ -37,6 +38,9 @@ class User(Model):
         verbose_name = "Kullanıcı"
         verbose_name_plural = "Kullanıcılar"
         search_fields = ['username', 'name', 'surname']
+
+    def get_avatar_url(self):
+        return "%s%s" % (settings.S3_PUBLIC_URL, self.avatar)
 
     def __unicode__(self):
         return "User %s" % self.username
@@ -169,6 +173,14 @@ class Role(Model):
         search_fields = ['name']
         list_fields = []
 
+    @property
+    def is_staff(self):
+        return self.typ == 1
+
+    @property
+    def is_student(self):
+        return self.typ == 2
+
     def get_user(self):
         return self.user
 
@@ -216,9 +228,8 @@ class Role(Model):
         else:
             return "Role #%s" % self.key if self.is_in_db() else ''
 
-    def save(self):
+    def pre_save(self):
         self.name = self._make_name()
-        super(Role, self).save()
 
 
 class LimitedPermissions(Model):
