@@ -11,6 +11,12 @@ import uuid
 import httplib
 import os
 
+"""
+UYARI : Lütfen bu kod içerisindeki uzun satırları formatlamayın. Gönderilen xml içersindeki
+satırların bozulması durumunda kps tarafında HTTP_STATUS 400 dönmektedir.
+
+"""
+
 __author__ = 'Ali Riza Keles'
 
 DEBUG = os.environ.get('DEBUG', False)
@@ -41,13 +47,18 @@ class NVIService(Service):
             self.invoke_sso_service()
 
         response = self.requestx()
-        self.response.payload = {"status": response.status, "result": json.dumps(response.read())}
+        response_xml = response.read()
+        self.response.payload = {"status": "ok" if response.status==200 else response.status, "result": self.xml_to_json(response_xml)}
 
     def invoke_sso_service(self):
         response = self.invoke('nvi-sts.sts-get-token')
         if response['status'] == 'ok':
-            for k, v in response['result'].iteritems():
-                self.sso_data.update({k, v})
+            result = json.loads(response['result'])
+            self.sso_data.update(result)
+            # self.logger.info("DDDDDDDDDDDDD: %s" % result)
+            # if response['status'] == 'ok':
+            #     for k, v in result.items():
+            #         self.sso_data.update({k, v})
 
     def request_xml(self):
         request_xml = """
@@ -101,6 +112,23 @@ class NVIService(Service):
                      request_xml, headers)
         return conn.getresponse()
 
+    def xml_to_json(self, response_xml=None, response_element=None):
+        from xml.dom import minidom
+        response_dict = {}
+
+        if response_xml:
+            root = minidom.parseString(response_xml).getElementsByTagName('SorguSonucu')[0]
+        else:
+            root = response_element
+
+        for e in root.childNodes:
+            if e.hasChildNodes():
+                response_dict[e.nodeName] = self.xml_to_json(response_element=e)
+            elif e.nodeType == e.TEXT_NODE:
+                return e.data
+
+        return response_dict
+
 
 class KisiSorgulaTCKimlikNo(NVIService):
     """
@@ -142,6 +170,7 @@ class CuzdanSorgulaTCKimlikNo(NVIService):
                     </ns1:kriterListesi>
                 </ns1:ListeleCoklu>
             </env:Body>""" % tckn
+        super(CuzdanSorgulaTCKimlikNo, self).handle()
 
 
 class YabanciKisiSorgula(NVIService):
@@ -174,8 +203,7 @@ class AdresSorgula(NVIService):
         tckn = self.request.payload['tckn']
         self.service_action = "/2015/07/01/KimlikNoSorgulaAdresServis/Sorgula"
         self.service_xml_body = """
-            <env:Body xmlns:env="http://www.w3.org/2003/05/soap-envelope"
-                xmlns:ns2="http://kps.nvi.gov.tr/2015/07/01" xmlns:ns1="http://kps.nvi.gov.tr/2011/01/01">
+            <env:Body xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:ns2="http://kps.nvi.gov.tr/2015/07/01" xmlns:ns1="http://kps.nvi.gov.tr/2011/01/01">
                     <ns2:Sorgula>
                         <ns2:kriterListesi>
                             <ns1:KimlikNoileAdresSorguKriteri>

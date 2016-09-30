@@ -5,18 +5,26 @@ from setuptools import find_packages
 
 setup(
     name='Ulakbus',
-    version='0.0.1',
+    version='0.8.6',
     description='Ulakbus Butunlesik Universite Sistemi',
     author='Zetaops',
-    install_requires=['pyoko', 'zengine', 'passlib', 'Werkzeug', 'requests', 'boto', 'reportlab'],
-    dependency_links=[
-        'git+https://github.com/zetaops/pyoko.git#egg=pyoko',
-        'git+https://github.com/zetaops/zengine.git#egg=zengine'],
-
+    license='GPL v3',
     author_email='info@zetaops.io',
+    install_requires=[
+        'zengine==0.7.4',
+        'requests',
+        'boto',
+        'reportlab',
+        'six',
+        'lxml',
+        'streamingxmlwriter'
+    ],
     url='https://github.com/zetaops/ulakbus',
     packages=find_packages(exclude=['tests', 'tests.*']),
-    package_data = {
+    download_url='https://github.com/zetaops/ulakbus/archive/master.zip',
+    package_data={
         'ulakbus': ['diagrams/*.bpmn'],
-    }
+    },
+    keywords=['academic erp', 'universty automation system'],
+    classifiers=[]
 )
